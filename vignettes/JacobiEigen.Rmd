@@ -2,7 +2,11 @@
 title: "The Classical Jacobi Algorithm"
 author: "Bill Venables"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: 
+  pdf_document:
+    includes:
+      in_header: header.tex
+  html_document: null
 vignette: >
   %\VignetteIndexEntry{The Classical Jacobi Algorithm}
   %\VignetteEngine{knitr::rmarkdown}
@@ -27,7 +31,7 @@ There has been some renewed interest in Jacobi-like methods in recent times, how
 
 This is a __demonstration package__ used for teaching purposes.  It's main purposes are to provide an example of an intermediate-level programming task where an efficient coding in pure `R` and one using in `C++` using `Rcpp` are strikingly similar.  The task also involves matrix manipulation in _pure_ `Rcpp`, rather than using `RcppArmadillo` for example, which is of some teaching interest as well.  
 
-There are some situations where the `C++` function provided, `JacopiCpp`, is slightly faster than the in-built `eigen` function in the `base` package, mainly for large numbers of small symmetric matrices.   Persons with a fascination for old algorithms might find the comparison with modern versions and alternatives interesting, but generally the functions are __not intended for production use__.
+There are some situations where the `C++` function provided, `JacopiCpp`, can be slightly faster than the in-built `eigen` function in the `base` package, mainly for large numbers of small symmetric matrices.   Persons with a fascination for old algorithms might find the comparison with modern versions and alternatives interesting, but generally the functions are __not intended for production use__.
 
 If someone is motivated to take up the challenge of producing a fast parallel Jacobi algorithm coding in R and provide it as a package, there may well be much practical interest (and this package will have served a useful practical purpose, if somewhat vicariously).
 
@@ -84,13 +88,15 @@ $$
 
 For a simple example, consider finding the eigenvalues and eigenvectors of a well-known correlation matrix.
 ```{r, comment = ""}
+suppressMessages(library(dplyr))
+library(JacobiEigen)
+library(stats)
+
 imod <- aov(cbind(Sepal.Length, Sepal.Width, Petal.Length, Petal.Width) ~ Species, iris)
 (R <- cor(resid(imod)))
 
-library(JacobiEigen)
-suppressPackageStartupMessages(library(dplyr))
 rEig <- JacobiR(R) 
-cEig <- JacobiCpp(R)
+cEig <- Jacobi(R)
 identical(rEig, cEig)  ## the R and Rcpp implementations are identical
 cEig
 (eEig <- eigen(R))
@@ -102,43 +108,51 @@ We can now look at some timings.
 
 ```{r, comment = ""}
 library(microbenchmark)
-microbenchmark(JacobiR(R), JacobiCpp(R), eigen(R))
+microbenchmark(JacobiR(R), Jacobi(R), eigen(R))
 ```
-The apparene advantage of `JacobiCpp` rapidly diminishes as the size of the matrix increases:
+The apparene advantage of `Jacobi` rapidly diminishes as the size of the matrix increases:
 
 ```{r, comment = ""}
-suppressPackageStartupMessages(library(tidyr))
+suppressMessages(library(tidyr))
 set.seed(1234)
 N <- 100
 iseq <- seq(5, 50, by = 5)
 res <- lapply(iseq,  function(n) {
   S <- crossprod(matrix(rnorm(N*n), N, n))/N
-  runTime <- microbenchmark(JacobiCpp(S), eigen(S), times = 20)
+  runTime <- microbenchmark(JacobiR(S), Jacobi(S), eigen(S), times = 20)
   c(n = n, with(runTime, tapply(time, expr, median))/1000)
 }) %>% 
   do.call(rbind, .) %>% 
   as.data.frame %>% 
-  gather(key = expr, value = time, `JacobiCpp(S)`, `eigen(S)`)
+  gather(key = expr, value = time, `JacobiR(S)`, `Jacobi(S)`, `eigen(S)`)
 
-suppressPackageStartupMessages(library(ggplot2))
+suppressMessages(library(ggplot2))
 ggplot(res) + aes(x = n, y = log10(time), colour = expr) + geom_line() + geom_point() +
   theme(legend.position = "top") + xlab("matrix size") +
-  ylab("log10(median run time in milliseconds)")
+  ylab(expression(log[10]("median run time in milliseconds")))
 ```
-\newpage
 
 # Code
 
 For referece, the `R` and `Rcpp` code are listed below.
 
+```{r, echo=FALSE, results="asis"}
+cat("\\newpage\n")
+```
+
 ### R
 
+This includes the interface to the `Rcpp` function.
+
 ```
-JacobiR <- function(x, only_values = FALSE,
-                    eps = if(!only_values) .Machine$double.eps else
+JacobiR <- function(x, symmetric = isTRUE(all.equal(x, t(x))), 
+                    only.values = FALSE,
+                    eps = if(!only.values) .Machine$double.eps else
                       sqrt(.Machine$double.eps)) {
+  if(!symmetric) 
+    stop("only real symmetric matrices are allowed")
   n <- nrow(x)
-  H <- if(only_values) NULL else diag(n)
+  H <- if(only.values) NULL else diag(n)
   eps <- max(eps, .Machine$double.eps)
 
   if(n > 1) {
@@ -163,7 +177,7 @@ JacobiR <- function(x, only_values = FALSE,
       x[i,j] <- x[j,i] <- 0
       x[i,i] <- c^2*Si[i] - 2*s*c*Si[j] + s^2*Sj[j]
       x[j,j] <- s^2*Si[i] + 2*s*c*Si[j] + c^2*Sj[j]
-      if(!only_values) {
+      if(!only.values) {
         Hi <- H[, i]
         H[, i] <- c*Hi - s*H[, j]
         H[, j] <- s*Hi + c*H[, j]
@@ -172,21 +186,30 @@ JacobiR <- function(x, only_values = FALSE,
   }
   list(values = as.vector(diag(x)), vectors = H)
 }
+
+##
+## The interface function to the Rcpp code
+##
+Jacobi <- function(x, symmetric = isTRUE(all.equal(x, t(x))), 
+                   only.values = FALSE, eps = 0.0) {
+  if(!symmetric) 
+    stop("only real symmetric matrices are allowed")
+  .Call('JacobiEigen_JacobiCpp', PACKAGE = 'JacobiEigen', x, only.values, eps)
+}
 ```
-\newpage
+
+```{r, echo=FALSE, results="asis"}
+cat("\\newpage\n")
+```
+
 
 ### Rcpp
 
-We begin with some helper functions:
+We begin with one helper function:
 
 ```
 #include <Rcpp.h>
 using namespace Rcpp;
-
-SEXP machine_double_eps(std::string value = "double.eps") // not exported.
-{
-    return (as<List>(Environment::base_env()[".Machine"]))[value];
-}
 
 NumericMatrix Ident(int n) // not exported.
 {
@@ -207,10 +230,9 @@ List JacobiCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
       H = Ident(nr);
     }
 
-    bool def = only_values & (eps == 0.0);
-    double eps0 = as<double>(machine_double_eps());
-    eps = eps > eps0 ? eps : eps0;  // i.e. tol. no lower than .Machine$double.eps
-    if(def) eps = sqrt(eps); // only a lower accuracy is needed for eigenvalues only.
+    double eps0 =  as<double>((as<List>(Environment::base_env()[".Machine"]))["double.eps"]);
+    double tol = eps > eps0 ? eps : eps0;  // i.e. no lower than .Machine$double.eps
+    if(only_values & (eps == 0.0)) tol = sqrt(tol); // a lower accuracy is adequate here.
 
     while(true) {
 	    double maxS = 0.0;
@@ -225,7 +247,7 @@ List JacobiCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
 	        	}
 	       }
 	    }
-	    if(maxS < eps) break;
+	    if(maxS <= tol) break;
 
 	    NumericVector Si = S(_, i), Sj = S(_, j);
 

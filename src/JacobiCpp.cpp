@@ -1,11 +1,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-SEXP machine_double_eps(std::string value = "double.eps") // not exported.
-{
-    return (as<List>(Environment::base_env()[".Machine"]))[value];
-}
-
 NumericMatrix Ident(int n) // not exported.
 {
     NumericMatrix I(n, n);
@@ -13,25 +8,6 @@ NumericMatrix Ident(int n) // not exported.
     return I;
 }
 
-//' The Classical Jacobi Algorithm in Compiled Code
-//'
-//' Eigenvalues and optionally, eigenvectore, of a real symmetric matrix using the
-//' classical Jacobi algorithm, (Jacobi, 1854)
-//' @import Rcpp
-//' @useDynLib JacobiEigen
-//' @title The Jacobi Algorithm using Rcpp
-//' @param x A real symmetric matrix
-//' @param only_values A logical value: do you want eigenvalues only?
-//' @param eps an error tolerance. 0.0 implies \code{.Machine$double.eps} and
-//'   \code{sqrt(.Machine$double.eps)} if \code{only_values = TRUE
-//'   }
-//' @export JacobiCpp
-//' @examples
-//' V <- crossprod(matrix(1:25, 5))
-//' JacobiCpp(V)
-//' identical(JacobiCpp(V), JacobiR(V))
-//' all.equal(JacobiCpp(V)$values, base::eigen(V)$values)
-//' @return a list of two components as for \code{base::eigen}
 // [[Rcpp::export]]
 List JacobiCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
 {
@@ -44,10 +20,9 @@ List JacobiCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
       H = Ident(nr);
     }
 
-    bool def = only_values & (eps == 0.0);
-    double eps0 = as<double>(machine_double_eps());
-    eps = eps > eps0 ? eps : eps0;  // i.e. tol. no lower than .Machine$double.eps
-    if(def) eps = sqrt(eps); // only a lower accuracy is needed for eigenvalues only.
+    double eps0 =  as<double>((as<List>(Environment::base_env()[".Machine"]))["double.eps"]);
+    double tol = eps > eps0 ? eps : eps0;  // i.e. no lower than .Machine$double.eps
+    if(only_values & (eps == 0.0)) tol = sqrt(tol); // a lower accuracy is adequate here.
 
     while(true) {
 	    double maxS = 0.0;
@@ -62,7 +37,7 @@ List JacobiCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
 	        	}
 	       }
 	    }
-	    if(maxS < eps) break;
+	    if(maxS <= tol) break;
 
 	    NumericVector Si = S(_, i), Sj = S(_, j);
 
