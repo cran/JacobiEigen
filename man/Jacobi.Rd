@@ -4,8 +4,7 @@
 \alias{Jacobi}
 \title{The Jacobi Algorithm using Rcpp}
 \usage{
-Jacobi(x, symmetric = isTRUE(all.equal(x, t(x))), only.values = FALSE,
-  eps = 0)
+Jacobi(x, symmetric = TRUE, only.values = FALSE, eps = 0)
 }
 \arguments{
 \item{x}{A real symmetric matrix}

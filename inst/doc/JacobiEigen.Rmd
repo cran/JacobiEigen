@@ -17,7 +17,7 @@ vignette: >
 
 ### The Jacobi eigenvalue algorithm
 
-This is a classical algorithm proposed by the mathematician C. G. J. Jacobi in 1846 in connexion with some astronomical computations.  See [wikipedia](https://en.wikipedia.org/wiki/Jacobi_eigenvalue_algorithm) for a detailed description and some historical references.
+This is a classical algorithm proposed by the mathematician C. G. J. Jacobi in 1846 in connection with some astronomical computations.  See [wikipedia](https://en.wikipedia.org/wiki/Jacobi_eigenvalue_algorithm) for a detailed description and some historical references.
 
 The method was computationally tedious, and remained dormant until the advent of modern computers in the mid 20th century.  Since its re-discovery it has been refined and improved many times, though much faster algorithms have since been devised and implemented.
 
@@ -34,6 +34,10 @@ This is a __demonstration package__ used for teaching purposes.  It's main purpo
 There are some situations where the `C++` function provided, `JacopiCpp`, can be slightly faster than the in-built `eigen` function in the `base` package, mainly for large numbers of small symmetric matrices.   Persons with a fascination for old algorithms might find the comparison with modern versions and alternatives interesting, but generally the functions are __not intended for production use__.
 
 If someone is motivated to take up the challenge of producing a fast parallel Jacobi algorithm coding in R and provide it as a package, there may well be much practical interest (and this package will have served a useful practical purpose, if somewhat vicariously).
+
+### Changes since the initial release
+
+In the original release the two functions were `JacobiR` and `JacobiCpp`, suggesting in their name which coding they were based upon.  Since the release of version 0.2-2, there have been some changes which unfortunately are not backward compatible.  Firstly, `JacobiCpp` has become simply `Jacobi`; there is, however, a non-exported function `JacobiEigen:::JacobiCpp` used as the workhorse.  Secondly, and more importantly, the argument names have changed slightly so as to match closely the names and meanings of the arguments to `eigen`.  The author regrets any inconvenience.
 
 # Brief synopsis of the algorithm 
 
@@ -66,7 +70,7 @@ $$
  $$
 Note that both cases can be accommodated via the `R` function `atan2`.
 
-In the general case a series of rotation matrices is chosen and applied successively.  These have teh same form as the $2\times2$ case, but embedded in an $n\times n$ identity matrix, so the application of any one of them affects two rows and columns _only_.  Such _planar rotation matrices_ are chosen so that at any stage the off-diagonal element with _maximum_ absolute value is anihilated.
+In the general case a series of rotation matrices is chosen and applied successively.  These have the same form as the $2\times2$ case, but embedded in an $n\times n$ identity matrix, so the application of any one of them affects two rows and columns _only_.  Such _planar rotation matrices_ are chosen so that at any stage the off-diagonal element with _maximum_ absolute value is annihilated.
 
 Hence if at some stage $|s_{ij}|, \; (i<j)$, is maximum, the planar rotation matrix $H_{ij}$ will affect rows and columns $i$ and $j$ only, and will transform $s_{ij}$ to zero, and the process continues.
 
@@ -74,7 +78,7 @@ The process ceases when the $\underset{i<j}{\max}|s_{ij}| < \epsilon$, where $\e
 
 [^1]: If only eigenvalues are required, the tolerance can be set somewhat higher than if accurate eigenvectors are required as well.  
 
-Elements that are anihilated at some stage may become non-zero at later stages, of course, but several properties of the algorithm are guaranteed, namely
+Elements that are annihilated at some stage may become non-zero at later stages, of course, but several properties of the algorithm are guaranteed, namely
 
 - At any stage the sum of squares of the off-diagonal elements is reduced, eventually to zero, and
 - The rate of convergence is quadratic, so the algorithm is _relatively_ quick.
@@ -110,7 +114,7 @@ We can now look at some timings.
 library(microbenchmark)
 microbenchmark(JacobiR(R), Jacobi(R), eigen(R))
 ```
-The apparene advantage of `Jacobi` rapidly diminishes as the size of the matrix increases:
+The relative disadvantage of `Jacobi` rapidly increases as the size of the matrix increases.  Not surprisingly, algorithmic improvements since 1846 have been very effective:
 
 ```{r, comment = ""}
 suppressMessages(library(tidyr))
@@ -128,13 +132,16 @@ res <- lapply(iseq,  function(n) {
 
 suppressMessages(library(ggplot2))
 ggplot(res) + aes(x = n, y = log10(time), colour = expr) + geom_line() + geom_point() +
-  theme(legend.position = "top") + xlab("matrix size") +
+  theme(legend.position = "top", legend.title = element_blank()) + xlab("matrix size") +
   ylab(expression(log[10]("median run time in milliseconds")))
 ```
 
+The only case where `Jacobi` may have a slight speed advantage over the standard routine `eigen` is
+in dealing with large numbers of small, _guaranteed symmetric_ matrices.
+
 # Code
 
-For referece, the `R` and `Rcpp` code are listed below.
+For reference, the `R` and `Rcpp` code are listed below.
 
 ```{r, echo=FALSE, results="asis"}
 cat("\\newpage\n")
@@ -145,8 +152,7 @@ cat("\\newpage\n")
 This includes the interface to the `Rcpp` function.
 
 ```
-JacobiR <- function(x, symmetric = isTRUE(all.equal(x, t(x))), 
-                    only.values = FALSE,
+JacobiR <- function(x, symmetric = TRUE, only.values = FALSE,
                     eps = if(!only.values) .Machine$double.eps else
                       sqrt(.Machine$double.eps)) {
   if(!symmetric) 
@@ -190,8 +196,7 @@ JacobiR <- function(x, symmetric = isTRUE(all.equal(x, t(x))),
 ##
 ## The interface function to the Rcpp code
 ##
-Jacobi <- function(x, symmetric = isTRUE(all.equal(x, t(x))), 
-                   only.values = FALSE, eps = 0.0) {
+Jacobi <- function(x, symmetric = TRUE, only.values = FALSE, eps = 0.0) {
   if(!symmetric) 
     stop("only real symmetric matrices are allowed")
   .Call('JacobiEigen_JacobiCpp', PACKAGE = 'JacobiEigen', x, only.values, eps)

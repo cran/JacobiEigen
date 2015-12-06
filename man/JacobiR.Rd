@@ -4,8 +4,8 @@
 \alias{JacobiR}
 \title{The Jacobi Algorithm in Pure R}
 \usage{
-JacobiR(x, symmetric = isTRUE(all.equal(x, t(x))), only.values = FALSE,
-  eps = if (!only.values) .Machine$double.eps else sqrt(.Machine$double.eps))
+JacobiR(x, symmetric = TRUE, only.values = FALSE, eps = if (!only.values)
+  .Machine$double.eps else sqrt(.Machine$double.eps))
 }
 \arguments{
 \item{x}{a real symmetric matrix}

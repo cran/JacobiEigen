@@ -1,8 +1,8 @@
 Package: JacobiEigen
 Type: Package
 Title: Classical Jacobi Eigensolution Algorithm
-Version: 0.2-1
-Date: 2015-11-28
+Version: 0.2-2
+Date: 2015-11-30
 Author: Bill Venables
 Imports: Rcpp
 Maintainer: Bill Venables <Bill.Venables@gmail.com>
@@ -16,6 +16,6 @@ Suggests: stats, knitr, dplyr, tidyr, ggplot2, microbenchmark
 VignetteBuilder: knitr
 NeedsCompilation: yes
 RoxygenNote: 5.0.1
-Packaged: 2015-11-29 06:30:38 UTC; bill
+Packaged: 2015-12-06 06:45:03 UTC; bill
 Repository: CRAN
-Date/Publication: 2015-11-29 09:06:40
+Date/Publication: 2015-12-06 13:31:58

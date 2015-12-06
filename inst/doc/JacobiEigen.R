@@ -35,7 +35,7 @@ res <- lapply(iseq,  function(n) {
 
 suppressMessages(library(ggplot2))
 ggplot(res) + aes(x = n, y = log10(time), colour = expr) + geom_line() + geom_point() +
-  theme(legend.position = "top") + xlab("matrix size") +
+  theme(legend.position = "top", legend.title = element_blank()) + xlab("matrix size") +
   ylab(expression(log[10]("median run time in milliseconds")))
 
 ## ---- echo=FALSE, results="asis"-----------------------------------------

@@ -14,8 +14,7 @@
 ##' identical(Jacobi(V), JacobiR(V))
 ##' all.equal(Jacobi(V)$values, base::eigen(V)$values)
 ##' @return a list of two components as for \code{base::eigen}
-JacobiR <- function(x, symmetric = isTRUE(all.equal(x, t(x))), 
-                    only.values = FALSE,
+JacobiR <- function(x, symmetric = TRUE, only.values = FALSE,
                     eps = if(!only.values) .Machine$double.eps else
                       sqrt(.Machine$double.eps)) {
   if(!symmetric) 
@@ -75,8 +74,7 @@ JacobiR <- function(x, symmetric = isTRUE(all.equal(x, t(x))),
 ##' identical(Jacobi(V), JacobiR(V))
 ##' all.equal(Jacobi(V)$values, base::eigen(V)$values)
 ##' @return a list of two components as for \code{base::eigen}
-Jacobi <- function(x, symmetric = isTRUE(all.equal(x, t(x))), 
-                   only.values = FALSE, eps = 0.0) {
+Jacobi <- function(x, symmetric = TRUE, only.values = FALSE, eps = 0.0) {
   if(!symmetric) 
     stop("only real symmetric matrices are allowed")
   .Call('JacobiEigen_JacobiCpp', PACKAGE = 'JacobiEigen', x, only.values, eps)
