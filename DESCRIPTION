@@ -1,21 +1,21 @@
 Package: JacobiEigen
 Type: Package
-Title: Classical Jacobi Eigensolution Algorithm
-Version: 0.2-2
-Date: 2015-11-30
+Title: Classical Jacobi Eigenvalue Algorithm
+Version: 0.3-3
+Date: 2019-03-10
 Author: Bill Venables
 Imports: Rcpp
 Maintainer: Bill Venables <Bill.Venables@gmail.com>
-Description: Implements the classical Jacobi (1846) algorithm for the
+Description: Implements the classical Jacobi algorithm for the
     eigenvalues and eigenvectors of a real symmetric matrix, both in 
-    pure R and in C++ using Rcpp. Mainly as a programming example 
+    pure 'R' and in 'C++' using 'Rcpp'. Mainly as a programming example 
     for teaching purposes.
 License: GPL (>= 2)
 LinkingTo: Rcpp
-Suggests: stats, knitr, dplyr, tidyr, ggplot2, microbenchmark
+Suggests: stats, knitr, dplyr, tidyr, ggplot2, rbenchmark
 VignetteBuilder: knitr
 NeedsCompilation: yes
-RoxygenNote: 5.0.1
-Packaged: 2015-12-06 06:45:03 UTC; bill
+RoxygenNote: 6.1.1
+Packaged: 2019-03-10 05:42:57 UTC; bill
 Repository: CRAN
-Date/Publication: 2015-12-06 13:31:58
+Date/Publication: 2019-03-10 07:12:44 UTC

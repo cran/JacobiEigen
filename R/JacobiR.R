@@ -9,7 +9,7 @@
 ##' @param eps a small positive error tolerance
 ##' @export JacobiR
 ##' @examples
-##' (V <- crossprod(matrix(1:25, 5)))
+##' V <- crossprod(matrix(rnorm(25), 5))
 ##' JacobiR(V)
 ##' identical(Jacobi(V), JacobiR(V))
 ##' all.equal(Jacobi(V)$values, base::eigen(V)$values)
@@ -52,7 +52,12 @@ JacobiR <- function(x, symmetric = TRUE, only.values = FALSE,
       }
     }
   }
-  list(values = as.vector(diag(x)), vectors = H)
+  out <- structure(list(values = as.vector(diag(x)), vectors = H), 
+                   class = c("Jacobi", "eigen"))
+  o <- order(out$values, decreasing = TRUE)
+  out$values <- out$values[o]
+  if(!only.values) out$vectors <- out$vectors[, o]
+  out
 }
 
 ##' The Classical Jacobi Algorithm
@@ -69,7 +74,7 @@ JacobiR <- function(x, symmetric = TRUE, only.values = FALSE,
 ##'   \code{sqrt(.Machine$double.eps)} if \code{only.values = TRUE}
 ##' @export Jacobi
 ##' @examples
-##' V <- crossprod(matrix(1:25, 5))
+##' V <- crossprod(matrix(runif(40, -1, 1), 8))
 ##' Jacobi(V)
 ##' identical(Jacobi(V), JacobiR(V))
 ##' all.equal(Jacobi(V)$values, base::eigen(V)$values)
@@ -77,7 +82,47 @@ JacobiR <- function(x, symmetric = TRUE, only.values = FALSE,
 Jacobi <- function(x, symmetric = TRUE, only.values = FALSE, eps = 0.0) {
   if(!symmetric) 
     stop("only real symmetric matrices are allowed")
-  .Call('JacobiEigen_JacobiCpp', PACKAGE = 'JacobiEigen', x, only.values, eps)
+  out <- structure(JacobiCpp(x, only.values, eps), 
+                   class = c("Jacobi", "eigen"))
+  o <- order(out$values, decreasing = TRUE)
+  out$values <- out$values[o]
+  if(!only.values) out$vectors <- out$vectors[, o]
+  out
+}
+
+##' The Classical Jacobi Algorithm with a stagewise protocol
+##'
+##' Eigenvalues and optionally, eigenvectore, of a real symmetric matrix using the
+##' classical Jacobi algorithm, (Jacobi, 1846) using a stagewise rotation protocol
+##' @title The Jacobi Algorithm using Rcpp with a stagewise rotation protocol 
+##' @param x A real symmetric matrix
+##' @param symmetric a logical value.  Is the matrix symmetric?  (Only symmetric matrices are allowed.)
+##' @param only.values A logical value: do you want only the eigenvalues?
+##' @param eps an error tolerance. 0.0 implies \code{.Machine$double.eps} and
+##'   \code{sqrt(.Machine$double.eps)} if \code{only.values = TRUE}
+##' @export JacobiS
+##' @examples
+##' V <- crossprod(matrix(runif(40, -1, 1), 8))
+##' JacobiS(V)
+##' all.equal(JacobiS(V)$values, Jacobi(V)$values)
+##' zapsmall(crossprod(JacobiS(V)$vectors, Jacobi(V)$vectors))
+##' @return a list of two components as for \code{base::eigen}
+JacobiS <- function(x, symmetric = TRUE, only.values = FALSE, eps = 0.0) {
+  if(!symmetric) 
+    stop("only real symmetric matrices are allowed")
+  out <- structure(JacobiSCpp(x, only.values, eps), 
+                   class = c("Jacobi", "eigen"))
+  o <- order(out$values, decreasing = TRUE)
+  out$values <- out$values[o]
+  if(!only.values) out$vectors <- out$vectors[, o]
+  out
+}
+
+##' @export
+print.Jacobi <- function (x, ...) {
+  cat("eigen decomposition (Jacobi algorithm)\n")
+  print(unclass(x), ...)
+  invisible(x)
 }
 
 .onUnload <- function(libpath) {

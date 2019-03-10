@@ -9,15 +9,15 @@ output:
   html_document: null
 vignette: >
   %\VignetteIndexEntry{The Classical Jacobi Algorithm}
-  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
 ---
 
 # Introduction
 
 ### The Jacobi eigenvalue algorithm
 
-This is a classical algorithm proposed by the mathematician C. G. J. Jacobi in 1846 in connection with some astronomical computations.  See [wikipedia](https://en.wikipedia.org/wiki/Jacobi_eigenvalue_algorithm) for a detailed description and some historical references.
+This is a classical algorithm proposed by the nineteenth century mathematician C. G. J. Jacobi in connection with some astronomical computations.  See [wikipedia](https://en.wikipedia.org/wiki/Jacobi_eigenvalue_algorithm) for a detailed description and some historical references.
 
 The method was computationally tedious, and remained dormant until the advent of modern computers in the mid 20th century.  Since its re-discovery it has been refined and improved many times, though much faster algorithms have since been devised and implemented.
 
@@ -35,9 +35,6 @@ There are some situations where the `C++` function provided, `JacopiCpp`, can be
 
 If someone is motivated to take up the challenge of producing a fast parallel Jacobi algorithm coding in R and provide it as a package, there may well be much practical interest (and this package will have served a useful practical purpose, if somewhat vicariously).
 
-### Changes since the initial release
-
-In the original release the two functions were `JacobiR` and `JacobiCpp`, suggesting in their name which coding they were based upon.  Since the release of version 0.2-2, there have been some changes which unfortunately are not backward compatible.  Firstly, `JacobiCpp` has become simply `Jacobi`; there is, however, a non-exported function `JacobiEigen:::JacobiCpp` used as the workhorse.  Secondly, and more importantly, the argument names have changed slightly so as to match closely the names and meanings of the arguments to `eigen`.  The author regrets any inconvenience.
 
 # Brief synopsis of the algorithm 
 
@@ -67,7 +64,7 @@ $$
 { \frac12}\arctan\left(\frac{2s_{12}}{s_{22} - s_{11}}\right) & \mbox{if } s_{11} \neq s_{22} \\
  {\frac{\pi}4}& \mbox{if  }s_{11} = s_{22}
  \end{cases}
- $$
+$$
 Note that both cases can be accommodated via the `R` function `atan2`.
 
 In the general case a series of rotation matrices is chosen and applied successively.  These have the same form as the $2\times2$ case, but embedded in an $n\times n$ identity matrix, so the application of any one of them affects two rows and columns _only_.  Such _planar rotation matrices_ are chosen so that at any stage the off-diagonal element with _maximum_ absolute value is annihilated.
@@ -88,11 +85,19 @@ $$
 H = H_{i_p,j_p} \cdots H_{i_3,j_3}H_{i_2,j_2}H_{i_1,j_1}I_n
 $$
 
+### Stagewise protocol
+
+The so-called 'stagewise' rotation protocol differs from the standard protocol by traversing the off-diagonal
+elements of the matrix systematically and rather than simply eliminating the element with maximum absolute value
+only, it eliminates all elements it encounters in turn if their absolute value exceeds a progressively reducing
+threshold.  This avoids some repeated searching of the off-diagonal section of the matrix and confers a small,
+if useful, speed advantage.  This implementation is provided in `JacobiS`.
+
 # Examples
 
 For a simple example, consider finding the eigenvalues and eigenvectors of a well-known correlation matrix.
 ```{r, comment = ""}
-suppressMessages(library(dplyr))
+suppressPackageStartupMessages(library(dplyr))
 library(JacobiEigen)
 library(stats)
 
@@ -103,49 +108,56 @@ rEig <- JacobiR(R)
 cEig <- Jacobi(R)
 identical(rEig, cEig)  ## the R and Rcpp implementations are identical
 cEig
-(eEig <- eigen(R))
+(eEig <- eigen(R)) ## eigenvectors differ in signs
 all.equal(eEig$values, cEig$values)  ## eigenvalues are (practically) identical
-crossprod(eEig$vectors, cEig$vectors) %>% ## eigenvectors differ in signs
-  round(10) 
 ```
 We can now look at some timings.
 
 ```{r, comment = ""}
-library(microbenchmark)
-microbenchmark(JacobiR(R), Jacobi(R), eigen(R))
+library(rbenchmark)
+benchmark(JacobiR(R), Jacobi(R), JacobiS(R), eigen(R), columns = c("test", "elapsed")) %>% 
+  arrange(elapsed)
 ```
 The relative disadvantage of `Jacobi` rapidly increases as the size of the matrix increases.  Not surprisingly, algorithmic improvements since 1846 have been very effective:
 
-```{r, comment = ""}
-suppressMessages(library(tidyr))
-set.seed(1234)
+```{r, comment = "", eval = FALSE}
+set.seed(12345)
 N <- 100
-iseq <- seq(5, 50, by = 5)
+iseq <- seq(10, 100, by = 10)
 res <- lapply(iseq,  function(n) {
   S <- crossprod(matrix(rnorm(N*n), N, n))/N
-  runTime <- microbenchmark(JacobiR(S), Jacobi(S), eigen(S), times = 20)
-  c(n = n, with(runTime, tapply(time, expr, median))/1000)
+  runTime <- benchmark(JacobiR(S), Jacobi(S), JacobiS(S), eigen(S), 
+                       replications = N,
+                       columns = c("test", "elapsed"))
+  cbind(n = n, runTime)
 }) %>% 
   do.call(rbind, .) %>% 
-  as.data.frame %>% 
-  gather(key = expr, value = time, `JacobiR(S)`, `Jacobi(S)`, `eigen(S)`)
+  within({
+    elapsed <- log10(1000*elapsed/N)
+  }) 
 
-suppressMessages(library(ggplot2))
-ggplot(res) + aes(x = n, y = log10(time), colour = expr) + geom_line() + geom_point() +
-  theme(legend.position = "top", legend.title = element_blank()) + xlab("matrix size") +
-  ylab(expression(log[10]("median run time in milliseconds")))
+suppressPackageStartupMessages(library(ggplot2))
+ggplot(res) + aes(x = n, y = elapsed, colour = test) + geom_line() + geom_point() +
+  scale_colour_manual(values = c("eigen(S)" = "pale violet red", "Jacobi(S)" = "steel blue",
+                                "JacobiS(S)" = "sky blue", "JacobiR(S)" = "tan")) + 
+  xlab("matrix size") +
+  ylab(expression(log[10](italic("mean run time [ms]")))) + theme_minimal() + 
+  theme(legend.position = "bottom", legend.title = element_blank()) 
+```
+```{r, echo = FALSE}
+knitr::include_graphics(file.path(getwd(), "benchmarks.pdf"))
 ```
 
 The only case where `Jacobi` may have a slight speed advantage over the standard routine `eigen` is
-in dealing with large numbers of small, _guaranteed symmetric_ matrices.
+in dealing with large numbers of small, _guaranteed symmetric_ matrices.  Using a stagewise
+rotation protocol, (`JacobiS`), where elements are zeroed out as the matrix is traversed if
+the exceed a progressively reduced threshold, rather than locating and eliminating only the 
+largest off-diagonal element (in absolute value) each time, conveys a small, but appreciable
+advantage.
 
 # Code
 
 For reference, the `R` and `Rcpp` code are listed below.
-
-```{r, echo=FALSE, results="asis"}
-cat("\\newpage\n")
-```
 
 ### R
 
@@ -190,22 +202,20 @@ JacobiR <- function(x, symmetric = TRUE, only.values = FALSE,
       }
     }
   }
-  list(values = as.vector(diag(x)), vectors = H)
+  structure(list(values = as.vector(diag(x)), vectors = H), 
+            class = c("Jacobi", "eigen"))
 }
-
 ##
 ## The interface function to the Rcpp code
 ##
 Jacobi <- function(x, symmetric = TRUE, only.values = FALSE, eps = 0.0) {
   if(!symmetric) 
     stop("only real symmetric matrices are allowed")
-  .Call('JacobiEigen_JacobiCpp', PACKAGE = 'JacobiEigen', x, only.values, eps)
+  structure(JacobiCpp(x, only.values, eps), 
+            class = c("Jacobi", "eigen"))
 }
 ```
 
-```{r, echo=FALSE, results="asis"}
-cat("\\newpage\n")
-```
 
 
 ### Rcpp
@@ -278,6 +288,70 @@ List JacobiCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
       return List::create(_["values"] = diag(S),
                           _["vectors"] = R_NilValue);
     }
+}
+
+// Stagewise protocol version
+//
+// [[Rcpp::export]]
+List JacobiSCpp(NumericMatrix x, bool only_values = false, double eps = 0.0)
+{
+  NumericMatrix S(clone(x));
+  int nr = S.nrow();
+  bool vectors = !only_values;
+  NumericMatrix H;
+  
+  if(vectors) {
+    H = Ident(nr);
+  }
+  
+  double eps0 =  as<double>((as<List>(Environment::base_env()[".Machine"]))["double.eps"]);
+  double tol = eps > eps0 ? eps : eps0;  // i.e. no lower than .Machine$double.eps
+  if(only_values & (eps == 0.0)) tol = sqrt(tol); // a lower accuracy is adequate here.
+
+  double maxS = 0.0;
+  for(int row = 1; row < nr; row++) {  // find value of maximum |off-diagonal|
+    for(int col = 0; col < row; col++) {
+      double val = fabs(S(row, col));
+      maxS = maxS < val ? val : maxS;
+    }
+  }
+  
+  while(true) {
+    if(maxS <= tol) break;
+    double maxS0 = 0.0;
+    for(int i = 1; i < nr; i++) {
+      for(int j = 0; j < i; j++) {
+        double val = fabs(S(i, j));
+        maxS0 = maxS0 < val ? val : maxS0;
+        if (val > maxS/2.0) {
+          NumericVector Si = S(_, i), Sj = S(_, j);
+          
+          double theta = 0.5*atan2(2.0*Si(j), Sj(j) - Si(i));
+          double s = sin(theta), c = cos(theta);
+          
+          S(i, _) = S(_, i) = c*Si - s*Sj;
+          S(j, _) = S(_, j) = s*Si + c*Sj;
+          S(i, j) = S(j, i) = 0.0;
+          S(i, i) = c*c*Si(i) - 2.0*s*c*Si(j) + s*s*Sj(j);
+          S(j, j) = s*s*Si(i) + 2.0*s*c*Si(j) + c*c*Sj(j);
+          
+          if(vectors) {
+            NumericVector Hi = H(_, i);
+            H(_, i) = c*Hi - s*H(_, j);
+            H(_, j) = s*Hi + c*H(_, j);
+          }
+        }
+      }
+    }
+    maxS = maxS0;
+  }
+  if(vectors) {
+    return List::create(_["values"] = diag(S),
+                        _["vectors"] = H);
+  } else {
+    return List::create(_["values"] = diag(S),
+                        _["vectors"] = R_NilValue);
+  }
 }
 ```
 

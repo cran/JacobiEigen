@@ -4,8 +4,8 @@
 \alias{JacobiR}
 \title{The Jacobi Algorithm in Pure R}
 \usage{
-JacobiR(x, symmetric = TRUE, only.values = FALSE, eps = if (!only.values)
-  .Machine$double.eps else sqrt(.Machine$double.eps))
+JacobiR(x, symmetric = TRUE, only.values = FALSE, eps = if
+  (!only.values) .Machine$double.eps else sqrt(.Machine$double.eps))
 }
 \arguments{
 \item{x}{a real symmetric matrix}
@@ -27,9 +27,8 @@ Eigenvalues and optionally, eigenvectore of a real symmetric matrix using the
 classical Jacobi algorithm, (Jacobi, 1854)
 }
 \examples{
-(V <- crossprod(matrix(1:25, 5)))
+V <- crossprod(matrix(rnorm(25), 5))
 JacobiR(V)
 identical(Jacobi(V), JacobiR(V))
 all.equal(Jacobi(V)$values, base::eigen(V)$values)
 }
-
