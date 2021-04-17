@@ -1,4 +1,4 @@
-## ---- comment = ""-------------------------------------------------------
+## ---- comment = ""------------------------------------------------------------
 suppressPackageStartupMessages(library(dplyr))
 library(JacobiEigen)
 library(stats)
@@ -13,12 +13,12 @@ cEig
 (eEig <- eigen(R)) ## eigenvectors differ in signs
 all.equal(eEig$values, cEig$values)  ## eigenvalues are (practically) identical
 
-## ---- comment = ""-------------------------------------------------------
+## ---- comment = ""------------------------------------------------------------
 library(rbenchmark)
 benchmark(JacobiR(R), Jacobi(R), JacobiS(R), eigen(R), columns = c("test", "elapsed")) %>% 
   arrange(elapsed)
 
-## ---- comment = "", eval = FALSE-----------------------------------------
+## ---- comment = "", eval = FALSE----------------------------------------------
 #  set.seed(12345)
 #  N <- 100
 #  iseq <- seq(10, 100, by = 10)
@@ -42,6 +42,6 @@ benchmark(JacobiR(R), Jacobi(R), JacobiS(R), eigen(R), columns = c("test", "elap
 #    ylab(expression(log[10](italic("mean run time [ms]")))) + theme_minimal() +
 #    theme(legend.position = "bottom", legend.title = element_blank())
 
-## ---- echo = FALSE-------------------------------------------------------
+## ---- echo = FALSE------------------------------------------------------------
 knitr::include_graphics(file.path(getwd(), "benchmarks.pdf"))
 
